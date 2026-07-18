@@ -147,6 +147,13 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
             ))}
           </div>
 
+          <p className="text-xs text-neutral-400">
+            登録座標: {(target.mode === "create" ? target.lat : target.pin.lat).toFixed(6)},{" "}
+            {(target.mode === "create" ? target.lng : target.pin.lng).toFixed(6)}
+            {target.mode === "edit" &&
+              "（位置がおかしい場合は削除して、地図を正しい場所でタップし直してください）"}
+          </p>
+
           <label className="flex flex-col gap-1 text-sm font-medium">
             名前
             <input
