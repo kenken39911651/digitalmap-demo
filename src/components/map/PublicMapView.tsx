@@ -52,7 +52,7 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
     setActivePinId(pinId);
     const pin = pins.find((p) => p.id === pinId);
     if (!pin) return;
-    canvasRef.current?.flyTo(pin.lat, pin.lng, 17);
+    canvasRef.current?.flyTo(pin.lat, pin.lng);
     canvasRef.current?.openPopup(pinId);
     if (!opts.fromMap && window.matchMedia("(max-width: 860px)").matches) {
       setDrawerOpen(false);

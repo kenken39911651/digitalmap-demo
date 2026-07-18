@@ -55,6 +55,16 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
     setSessions((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function moveSession(index: number, direction: -1 | 1) {
+    setSessions((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
   function handleSave() {
     if (!title.trim()) {
       setError("名前を入力してください。");
@@ -226,6 +236,26 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
                 className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-2 dark:border-neutral-800"
               >
                 <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-col">
+                    <button
+                      type="button"
+                      onClick={() => moveSession(i, -1)}
+                      disabled={i === 0}
+                      aria-label="上に移動"
+                      className="leading-none text-neutral-400 disabled:opacity-20"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveSession(i, 1)}
+                      disabled={i === sessions.length - 1}
+                      aria-label="下に移動"
+                      className="leading-none text-neutral-400 disabled:opacity-20"
+                    >
+                      ▼
+                    </button>
+                  </div>
                   <input
                     type="time"
                     value={s.startTime}

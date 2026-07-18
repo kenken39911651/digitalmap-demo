@@ -43,12 +43,21 @@ function formatDate(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`;
 }
 
-function makePinElement(color: string, cancelled: boolean) {
+function makePinElement(color: string, cancelled: boolean, emoji: string) {
   const el = document.createElement("div");
   el.style.cssText = `
-    background:${color}; width:26px; height:26px; border-radius:50% 50% 50% 0;
-    transform: rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.3);
-    opacity:${cancelled ? "0.45" : "1"}; cursor:pointer;
+    position:relative; width:30px; height:30px; cursor:pointer;
+    opacity:${cancelled ? "0.45" : "1"};
+  `;
+  el.innerHTML = `
+    <div style="
+      position:absolute; inset:0; background:${color}; border-radius:50% 50% 50% 0;
+      transform: rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    "></div>
+    <div style="
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-size:15px; line-height:1; transform: translateY(-2px);
+    ">${escapeHtml(emoji)}</div>
   `;
   return el;
 }
@@ -117,6 +126,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   const mapRef = useRef<maplibregl.Map | null>(null);
   const centerMarkerRef = useRef<maplibregl.Marker | null>(null);
   const markersRef = useRef<Record<string, maplibregl.Marker>>({});
+  const activePinIdRef = useRef<string | null>(null);
   const onMarkerClickRef = useRef(onMarkerClick);
   const onMapClickRef = useRef(onMapClick);
 
@@ -134,7 +144,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       zoom,
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    // top-leftはモバイルで浮動の「イベント一覧」ボタンと重なるため、
+    // ズームボタンはbottom-leftに配置する。
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-left");
     map.addControl(
       new BasemapToggleControl(basemap, brandColor, () => {
         /* handled via re-render on parent state if needed */
@@ -215,8 +227,13 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
         .forEach((pin) => {
           const category = pin.category_id ? categoryById[pin.category_id] : undefined;
           const color = category?.color ?? "#6b7280";
-          const el = makePinElement(color, pin.status === "cancelled");
-          const popup = new maplibregl.Popup({ offset: 24 }).setHTML(popupHtml(pin, category));
+          const el = makePinElement(color, pin.status === "cancelled", pin.emoji);
+          const popup = new maplibregl.Popup({ offset: 24, maxWidth: "300px" }).setHTML(
+            popupHtml(pin, category)
+          );
+          popup.on("close", () => {
+            if (activePinIdRef.current === pin.id) activePinIdRef.current = null;
+          });
           const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
             .setLngLat([pin.lng, pin.lat])
             .setPopup(popup)
@@ -226,7 +243,12 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
           // ハンドラで直接開閉する。
           el.addEventListener("click", (e) => {
             e.stopPropagation();
+            // 別のピンのポップアップが開いていたら閉じてから、このピンを開く
+            if (activePinIdRef.current && activePinIdRef.current !== pin.id) {
+              markersRef.current[activePinIdRef.current]?.getPopup()?.remove();
+            }
             if (!popup.isOpen()) marker.togglePopup();
+            activePinIdRef.current = pin.id;
             onMarkerClickRef.current?.(pin.id);
           });
           markersRef.current[pin.id] = marker;
@@ -246,10 +268,17 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   }, [basemap, brandColor]);
 
   useImperativeHandle(ref, () => ({
-    flyTo(lat, lng, targetZoom = 17) {
-      mapRef.current?.flyTo({ center: [lng, lat], zoom: targetZoom, duration: 600 });
+    flyTo(lat, lng, targetZoom) {
+      // ズームレベルを明示的に指定しない限り、タップ時に縮尺を変えず
+      // 現在のズームを維持したままパンする。
+      const zoomToUse = targetZoom ?? mapRef.current?.getZoom();
+      mapRef.current?.flyTo({ center: [lng, lat], zoom: zoomToUse, duration: 600 });
     },
     openPopup(pinId) {
+      // 一覧からの選択時も、別のピンのポップアップが開いていたら閉じる。
+      if (activePinIdRef.current && activePinIdRef.current !== pinId) {
+        markersRef.current[activePinIdRef.current]?.getPopup()?.remove();
+      }
       // マーカー自体のクリックでは、MapLibre標準の挙動で既にポップアップが
       // 開いているため、ここでtogglePopup()すると閉じてしまう。既に開いて
       // いる場合は何もしない、閉じている場合だけ開く(冪等)。
@@ -257,6 +286,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       if (marker && !marker.getPopup()?.isOpen()) {
         marker.togglePopup();
       }
+      activePinIdRef.current = pinId;
     },
   }));
 

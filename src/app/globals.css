@@ -285,11 +285,38 @@ body {
 .popup-meta { color: #5a564c; margin: 2px 0; }
 .popup-desc { margin-top: 6px; line-height: 1.5; }
 
-.popup-schedule { margin-top: 8px; border-top: 1px solid var(--map-border); padding-top: 6px; }
-.popup-schedule-title { font-weight: 700; font-size: 11.5px; color: var(--map-text-secondary); margin-bottom: 4px; }
-.popup-schedule-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.popup-schedule-list li { font-size: 12.5px; }
-.popup-schedule-time { font-weight: 700; margin-right: 6px; color: var(--brand-color, var(--map-text-primary)); }
+.popup-schedule {
+  margin-top: 10px;
+  border-top: 1px solid var(--map-border);
+  padding-top: 8px;
+}
+.popup-schedule-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--map-text-secondary);
+  margin-bottom: 6px;
+}
+.popup-schedule-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.popup-schedule-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--map-bg);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.popup-schedule-time {
+  flex: none;
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
+  background: var(--brand-color, var(--map-text-primary));
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
 .popup-badge {
   display: inline-block;
   margin-left: 6px;
