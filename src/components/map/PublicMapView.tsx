@@ -10,7 +10,13 @@ import MobileDrawer from "./MobileDrawer";
 interface PublicMapViewProps {
   map: Pick<
     EventMap,
-    "title" | "center_lat" | "center_lng" | "default_zoom" | "basemap" | "brand_color"
+    | "title"
+    | "center_lat"
+    | "center_lng"
+    | "default_zoom"
+    | "basemap"
+    | "brand_color"
+    | "notice_text"
   >;
   categories: MapCategory[];
   pins: Pin[];
@@ -23,6 +29,7 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showNotice, setShowNotice] = useState(!!map.notice_text);
   const canvasRef = useRef<MapCanvasHandle>(null);
 
   const visiblePins = useMemo(() => pins.filter((p) => p.status !== "hidden"), [pins]);
@@ -64,6 +71,22 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
       className="app-body"
       style={{ ["--brand-color" as string]: map.brand_color }}
     >
+      {showNotice && map.notice_text && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 dark:bg-neutral-900">
+            <h3 className="text-base font-bold">ご来場にあたっての注意事項</h3>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{map.notice_text}</p>
+            <button
+              type="button"
+              onClick={() => setShowNotice(false)}
+              className="mt-4 w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900"
+            >
+              確認しました
+            </button>
+          </div>
+        </div>
+      )}
+
       <MobileDrawer toggleLabel="イベント一覧" open={drawerOpen} onOpenChange={setDrawerOpen}>
         <div className="search-block">
           <label htmlFor="mapSearchInput" className="visually-hidden">

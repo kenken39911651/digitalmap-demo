@@ -18,6 +18,7 @@ export interface EventMap {
   status: MapStatus;
   event_date_start: string | null;
   event_date_end: string | null;
+  notice_text: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;

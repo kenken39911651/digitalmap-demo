@@ -100,6 +100,18 @@ export async function updateMapCenter(input: UpdateMapCenterInput): Promise<void
   revalidatePath(`/admin/maps/${input.mapId}`);
 }
 
+export async function updateMapNotice(mapId: string, noticeText: string): Promise<void> {
+  const orgId = await getOrCreateOrganizationId();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("event_maps")
+    .update({ notice_text: noticeText.trim() || null })
+    .eq("id", mapId)
+    .eq("organization_id", orgId);
+  if (error) throw new Error("注意事項の更新に失敗しました");
+  revalidatePath(`/admin/maps/${mapId}`);
+}
+
 export async function publishMap(mapId: string): Promise<void> {
   const orgId = await getOrCreateOrganizationId();
   const supabase = await createClient();

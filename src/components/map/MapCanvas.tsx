@@ -142,7 +142,14 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       style: styleUrlFor(basemap),
       center: [centerLng, centerLat],
       zoom,
+      // 会場マップに地図の回転は不要で、スマホのピンチズーム時に指が
+      // わずかにねじれるだけで意図せず回転してしまい「ピンが動く」ように
+      // 感じる原因になるため、回転操作自体を無効化する(ズームは維持)。
+      dragRotate: false,
+      touchPitch: false,
+      pitchWithRotate: false,
     });
+    map.touchZoomRotate.disableRotation();
 
     // top-leftはモバイルで浮動の「イベント一覧」ボタンと重なるため、
     // ズームボタンはbottom-leftに配置する。
