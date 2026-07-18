@@ -1,6 +1,6 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getMapForEditing } from "@/lib/data";
+import { getSiteUrl } from "@/lib/siteUrl";
 import MapPreviewPanel from "@/components/admin/MapPreviewPanel";
 
 interface PageProps {
@@ -12,8 +12,7 @@ export default async function PreviewMapPage({ params }: PageProps) {
   const result = await getMapForEditing(mapId);
   if (!result) notFound();
 
-  const originHeader = (await headers()).get("origin");
-  const siteUrl = originHeader ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const siteUrl = await getSiteUrl();
 
   return (
     <MapPreviewPanel

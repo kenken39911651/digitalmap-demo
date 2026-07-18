@@ -1,7 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/siteUrl";
 
 export interface RequestMagicLinkState {
   status: "idle" | "sent" | "error";
@@ -18,8 +18,7 @@ export async function requestMagicLink(
   }
 
   const supabase = await createClient();
-  const originHeader = (await headers()).get("origin");
-  const origin = originHeader ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = await getSiteUrl();
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
