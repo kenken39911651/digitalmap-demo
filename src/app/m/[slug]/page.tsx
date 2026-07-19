@@ -68,8 +68,9 @@ export default async function PublicMapPage({ params }: PageProps) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex h-14 items-center justify-between border-b border-black/10 px-4 dark:border-white/10">
-        <h1 className="text-sm font-bold">{map.title}</h1>
+      <header className="map-header" style={{ ["--brand-color" as string]: map.brand_color }}>
+        <span className="map-header-accent" aria-hidden="true" />
+        <h1 className="map-header-title">{map.title}</h1>
       </header>
       <PublicMapView map={map} categories={categories} pins={pins} />
     </div>

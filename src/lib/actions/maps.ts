@@ -100,16 +100,32 @@ export async function updateMapCenter(input: UpdateMapCenterInput): Promise<void
   revalidatePath(`/admin/maps/${input.mapId}`);
 }
 
-export async function updateMapNotice(mapId: string, noticeText: string): Promise<void> {
+interface UpdateMapSettingsInput {
+  mapId: string;
+  title: string;
+  description: string;
+  eventDateStart: string;
+  eventDateEnd: string;
+  noticeText: string;
+}
+
+export async function updateMapSettings(input: UpdateMapSettingsInput): Promise<void> {
   const orgId = await getOrCreateOrganizationId();
   const supabase = await createClient();
   const { error } = await supabase
     .from("event_maps")
-    .update({ notice_text: noticeText.trim() || null })
-    .eq("id", mapId)
+    .update({
+      title: input.title.trim(),
+      description: input.description.trim() || null,
+      event_date_start: input.eventDateStart || null,
+      event_date_end: input.eventDateEnd || null,
+      notice_text: input.noticeText.trim() || null,
+    })
+    .eq("id", input.mapId)
     .eq("organization_id", orgId);
-  if (error) throw new Error("注意事項の更新に失敗しました");
-  revalidatePath(`/admin/maps/${mapId}`);
+  if (error) throw new Error("マップ設定の更新に失敗しました");
+  revalidatePath("/admin");
+  revalidatePath(`/admin/maps/${input.mapId}`);
 }
 
 export async function publishMap(mapId: string): Promise<void> {

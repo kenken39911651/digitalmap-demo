@@ -97,6 +97,7 @@ function sessionListHtml(pin: Pin) {
 }
 
 function popupHtml(pin: Pin, category: MapCategory | undefined) {
+  const accent = category?.color ?? "var(--map-text-muted)";
   const cancelledBadge =
     pin.status === "cancelled"
       ? `<span class="popup-badge popup-badge--cancelled">中止</span>`
@@ -106,12 +107,21 @@ function popupHtml(pin: Pin, category: MapCategory | undefined) {
     .filter(Boolean)
     .join("｜");
   return `
-    <div class="popup-content">
-      <div class="popup-title" style="${titleStyle}">${pin.emoji} ${escapeHtml(pin.title)} ${cancelledBadge}</div>
-      ${meta ? `<div class="popup-meta">${escapeHtml(meta)}</div>` : ""}
-      ${pin.place_note ? `<div class="popup-meta">📍 ${escapeHtml(pin.place_note)}</div>` : ""}
+    <div class="popup-content" style="--popup-accent:${accent}">
+      <div class="popup-head">
+        <span class="popup-emoji-badge">${pin.emoji}</span>
+        <div class="popup-headline">
+          <div class="popup-title" style="${titleStyle}">${escapeHtml(pin.title)}${cancelledBadge}</div>
+          ${category ? `<div class="popup-category">${escapeHtml(category.label)}</div>` : ""}
+        </div>
+      </div>
+      ${meta || pin.place_note ? `
+        <div class="popup-meta-group">
+          ${meta ? `<div class="popup-meta">🕒 ${escapeHtml(meta)}</div>` : ""}
+          ${pin.place_note ? `<div class="popup-meta">📍 ${escapeHtml(pin.place_note)}</div>` : ""}
+        </div>
+      ` : ""}
       ${pin.description ? `<div class="popup-desc">${escapeHtml(pin.description)}</div>` : ""}
-      ${category ? `<div class="popup-meta">${escapeHtml(category.label)}</div>` : ""}
       ${sessionListHtml(pin)}
     </div>
   `;

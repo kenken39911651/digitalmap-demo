@@ -92,6 +92,17 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
           <label htmlFor="mapSearchInput" className="visually-hidden">
             検索
           </label>
+          <svg
+            className="search-icon"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="7" cy="7" r="5.25" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M11 11L14.5 14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
           <input
             id="mapSearchInput"
             type="search"
@@ -113,7 +124,7 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
 
         <div className="list-block">
           <div className="list-header">
-            <span>{filteredPins.length}件</span>
+            <span>{filteredPins.length}件のスポット</span>
           </div>
           <PinList
             pins={filteredPins}

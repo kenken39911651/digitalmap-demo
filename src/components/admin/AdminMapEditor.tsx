@@ -9,7 +9,7 @@ import CategoryChips from "@/components/map/CategoryChips";
 import PinList from "@/components/map/PinList";
 import PinForm from "./PinForm";
 import AddCategoryModal from "./AddCategoryModal";
-import MapNoticeModal from "./MapNoticeModal";
+import MapSettingsModal from "./MapSettingsModal";
 import { cyclePinStatus } from "@/lib/actions/pins";
 
 type FormTarget =
@@ -31,7 +31,7 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
   );
   const [formTarget, setFormTarget] = useState<FormTarget>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [showNotice, setShowNotice] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -79,10 +79,10 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
         <div className="flex gap-2 text-sm">
           <button
             type="button"
-            onClick={() => setShowNotice(true)}
+            onClick={() => setShowSettings(true)}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 font-semibold dark:border-neutral-700"
           >
-            注意事項{map.notice_text ? "✓" : ""}
+            マップ設定
           </button>
           <Link
             href={`/admin/maps/${map.id}/preview`}
@@ -155,12 +155,11 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
         />
       )}
 
-      {showNotice && (
-        <MapNoticeModal
-          mapId={map.id}
-          initialNotice={map.notice_text}
+      {showSettings && (
+        <MapSettingsModal
+          map={map}
           onClose={() => {
-            setShowNotice(false);
+            setShowSettings(false);
             router.refresh();
           }}
         />

@@ -31,6 +31,7 @@ export default function MobileDrawer({
       </button>
 
       <aside id="sidebar" className={"sidebar" + (open ? " is-open" : "")}>
+        <div className="sidebar-drag-handle" aria-hidden="true" />
         <div className="sidebar-inner">{children}</div>
       </aside>
 

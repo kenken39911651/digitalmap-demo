@@ -52,29 +52,37 @@ export default function PinList({
         const meta = [pin.date ? formatDate(pin.date) : null, pin.time_label]
           .filter(Boolean)
           .join("｜");
+        const accentColor = cat?.color ?? "var(--map-text-muted)";
         return (
           <li key={pin.id}>
-            <div className={"event-card" + (pin.id === activePinId ? " is-active" : "")}>
+            <div
+              className={"event-card" + (pin.id === activePinId ? " is-active" : "")}
+              style={{ ["--card-accent" as string]: accentColor }}
+            >
               <button
                 type="button"
                 className="event-card-main"
                 onClick={() => onSelect(pin.id)}
               >
                 <div className="event-card-top">
-                  <span className="event-emoji">{pin.emoji}</span>
-                  <span
-                    className="event-title"
-                    style={pin.status === "cancelled" ? { textDecoration: "line-through" } : undefined}
-                  >
-                    {pin.title}
+                  <span className="event-emoji-badge" style={{ background: accentColor }}>
+                    {pin.emoji}
                   </span>
+                  <div className="event-card-headline">
+                    <span
+                      className="event-title"
+                      style={pin.status === "cancelled" ? { textDecoration: "line-through" } : undefined}
+                    >
+                      {pin.title}
+                    </span>
+                    {cat && <span className="event-category">{cat.label}</span>}
+                  </div>
                 </div>
-                {meta && <div className="event-meta">{meta}</div>}
-                {pin.place_note && <div className="event-meta">📍 {pin.place_note}</div>}
-                {cat && (
-                  <span className="event-tag" style={{ background: cat.color }}>
-                    {cat.label}
-                  </span>
+                {(meta || pin.place_note) && (
+                  <div className="event-card-details">
+                    {meta && <div className="event-meta">🕒 {meta}</div>}
+                    {pin.place_note && <div className="event-meta">📍 {pin.place_note}</div>}
+                  </div>
                 )}
               </button>
 
