@@ -107,6 +107,7 @@ interface UpdateMapSettingsInput {
   eventDateStart: string;
   eventDateEnd: string;
   noticeText: string;
+  hiddenScheduleVenues: string[];
 }
 
 export async function updateMapSettings(input: UpdateMapSettingsInput): Promise<void> {
@@ -120,6 +121,7 @@ export async function updateMapSettings(input: UpdateMapSettingsInput): Promise<
       event_date_start: input.eventDateStart || null,
       event_date_end: input.eventDateEnd || null,
       notice_text: input.noticeText.trim() || null,
+      hidden_schedule_venues: input.hiddenScheduleVenues,
     })
     .eq("id", input.mapId)
     .eq("organization_id", orgId);

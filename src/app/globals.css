@@ -110,11 +110,95 @@ body {
 .app-body {
   flex: 1;
   display: flex;
+  flex-direction: column;
   min-height: 0;
   height: calc(100dvh - var(--map-header-h));
   position: relative;
   background: var(--map-bg);
 }
+
+.app-row { flex: 1; display: flex; min-height: 0; }
+
+.view-switcher {
+  flex: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--map-border);
+  background: var(--map-surface);
+}
+.view-switch-group {
+  display: inline-flex;
+  border: 1px solid var(--map-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.view-switch-btn {
+  border: none;
+  background: transparent;
+  color: var(--map-text-secondary);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+.view-switch-btn + .view-switch-btn { border-left: 1px solid var(--map-border); }
+.view-switch-btn:hover { background: var(--map-surface-hover); }
+.view-switch-btn.is-active { background: var(--brand-color); color: #fff; }
+
+.schedule-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.schedule-venue-section { display: flex; flex-direction: column; gap: 10px; }
+.schedule-venue-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--map-text-primary);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--brand-color);
+  max-width: 640px;
+}
+.schedule-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 640px;
+}
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--map-radius-sm);
+  background: var(--map-surface);
+  border: 1px solid var(--map-border);
+}
+.schedule-time {
+  flex: none;
+  min-width: 84px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--map-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.schedule-emoji-badge {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.schedule-label { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--map-text-primary); }
 
 /* ---------------------------------------------------------------------- *
  * Mobile drawer toggle
@@ -575,7 +659,8 @@ body {
   .menu-toggle {
     display: inline-flex;
     position: fixed;
-    top: calc(var(--map-header-h) + 12px);
+    /* view-switcherバー(タブ切り替え)の高さ分だけ下にずらし、重なりを防ぐ。 */
+    top: calc(var(--map-header-h) + 58px + 12px);
     left: 12px;
     z-index: 16;
     box-shadow: var(--map-shadow);

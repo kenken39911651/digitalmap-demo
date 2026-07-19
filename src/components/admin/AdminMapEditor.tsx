@@ -40,6 +40,18 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
     [pins]
   );
 
+  const venues = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const p of pins) {
+      if (p.place_note && !seen.has(p.place_note)) {
+        seen.add(p.place_note);
+        list.push(p.place_note);
+      }
+    }
+    return list;
+  }, [pins]);
+
   function toggleCategory(id: string) {
     setActiveCategoryIds((prev) => {
       const next = new Set(prev);
@@ -158,6 +170,7 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
       {showSettings && (
         <MapSettingsModal
           map={map}
+          venues={venues}
           onClose={() => {
             setShowSettings(false);
             router.refresh();

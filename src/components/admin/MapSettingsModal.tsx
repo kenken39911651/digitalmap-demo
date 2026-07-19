@@ -7,19 +7,38 @@ import { updateMapSettings } from "@/lib/actions/maps";
 interface MapSettingsModalProps {
   map: Pick<
     EventMap,
-    "id" | "title" | "description" | "event_date_start" | "event_date_end" | "notice_text"
+    | "id"
+    | "title"
+    | "description"
+    | "event_date_start"
+    | "event_date_end"
+    | "notice_text"
+    | "hidden_schedule_venues"
   >;
+  venues: string[];
   onClose: () => void;
 }
 
-export default function MapSettingsModal({ map, onClose }: MapSettingsModalProps) {
+export default function MapSettingsModal({ map, venues, onClose }: MapSettingsModalProps) {
   const [title, setTitle] = useState(map.title);
   const [description, setDescription] = useState(map.description ?? "");
   const [eventDateStart, setEventDateStart] = useState(map.event_date_start ?? "");
   const [eventDateEnd, setEventDateEnd] = useState(map.event_date_end ?? "");
   const [noticeText, setNoticeText] = useState(map.notice_text ?? "");
+  const [hiddenVenues, setHiddenVenues] = useState<Set<string>>(
+    () => new Set(map.hidden_schedule_venues)
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  function toggleVenue(venue: string) {
+    setHiddenVenues((prev) => {
+      const next = new Set(prev);
+      if (next.has(venue)) next.delete(venue);
+      else next.add(venue);
+      return next;
+    });
+  }
 
   function handleSave() {
     if (!title.trim()) {
@@ -36,6 +55,7 @@ export default function MapSettingsModal({ map, onClose }: MapSettingsModalProps
           eventDateStart,
           eventDateEnd,
           noticeText,
+          hiddenScheduleVenues: Array.from(hiddenVenues),
         });
         onClose();
       } catch {
@@ -103,6 +123,27 @@ export default function MapSettingsModal({ map, onClose }: MapSettingsModalProps
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950"
             />
           </label>
+
+          {venues.length > 0 && (
+            <div className="flex flex-col gap-1 text-sm font-medium">
+              タイムスケジュールに表示する場所
+              <span className="text-xs font-normal text-neutral-500">
+                チェックを外した場所は、来場者向けのタイムスケジュール画面から除外されます（地図の表示には影響しません）。
+              </span>
+              <div className="mt-1 flex flex-col gap-1.5">
+                {venues.map((venue) => (
+                  <label key={venue} className="flex items-center gap-2 text-sm font-normal">
+                    <input
+                      type="checkbox"
+                      checked={!hiddenVenues.has(venue)}
+                      onChange={() => toggleVenue(venue)}
+                    />
+                    {venue}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
