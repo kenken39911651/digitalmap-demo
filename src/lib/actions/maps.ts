@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreateOrganizationId, getMapForEditing } from "@/lib/data";
 import { generateSlug } from "@/lib/slug";
 import { getTemplate } from "@/lib/templates";
+import { normalizePinTransitStops } from "@/lib/gtfs/normalize";
 import type { EventType, MapCategory, Pin, PublishedSnapshot } from "@/lib/types";
 
 // 中心地点はウィザードStep3で設定されるまでの仮の値（東京駅）。
@@ -152,7 +153,7 @@ async function buildSnapshot(
     supabase.from("map_categories").select("*").eq("map_id", mapId).order("sort_order"),
     supabase
       .from("pins")
-      .select("*, sessions:pin_sessions(*)")
+      .select("*, sessions:pin_sessions(*), transit_stop:pin_transit_stops(*)")
       .eq("map_id", mapId)
       .neq("status", "hidden")
       .order("sort_order")
@@ -162,7 +163,7 @@ async function buildSnapshot(
   return {
     map: map as PublishedSnapshot["map"],
     categories: (categories ?? []) as MapCategory[],
-    pins: (pins ?? []) as Pin[],
+    pins: normalizePinTransitStops((pins ?? []) as Pin[]),
   };
 }
 

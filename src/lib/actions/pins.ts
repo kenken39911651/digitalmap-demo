@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getOrCreateOrganizationId } from "@/lib/data";
+import { importStopSchedule } from "@/lib/gtfs/import";
 import type { PinStatus } from "@/lib/types";
 
 export interface SessionInput {
@@ -9,6 +11,68 @@ export interface SessionInput {
   startTime?: string;
   endTime?: string;
   description?: string;
+}
+
+export type TransitStopInput =
+  | { dataSource: "external_link"; url: string; label?: string }
+  | { dataSource: "gtfs"; feedId: string; gtfsStopId: string }
+  | null;
+
+async function replaceTransitStop(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  pinId: string,
+  transitStop: TransitStopInput
+): Promise<void> {
+  const { error: deleteError } = await supabase.from("pin_transit_stops").delete().eq("pin_id", pinId);
+  if (deleteError) throw new Error("交通機関情報の更新に失敗しました");
+
+  if (!transitStop) return;
+
+  if (transitStop.dataSource === "external_link") {
+    if (!transitStop.url.trim()) return;
+    const { error } = await supabase.from("pin_transit_stops").insert({
+      pin_id: pinId,
+      data_source: "external_link",
+      external_url: transitStop.url.trim(),
+      external_label: transitStop.label?.trim() || null,
+    });
+    if (error) throw new Error("交通機関情報の保存に失敗しました");
+    return;
+  }
+
+  const orgId = await getOrCreateOrganizationId();
+  const { data: feed } = await supabase
+    .from("gtfs_feeds")
+    .select("id, source_url")
+    .eq("id", transitStop.feedId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+  if (!feed) throw new Error("フィードが見つかりません");
+
+  const { data: stop } = await supabase
+    .from("gtfs_stops")
+    .select("id, stop_id")
+    .eq("id", transitStop.gtfsStopId)
+    .eq("feed_id", transitStop.feedId)
+    .maybeSingle();
+  if (!stop) throw new Error("停留所が見つかりません");
+
+  await importStopSchedule(
+    supabase,
+    transitStop.feedId,
+    orgId,
+    feed.source_url as string,
+    stop.id as string,
+    stop.stop_id as string
+  );
+
+  const { error } = await supabase.from("pin_transit_stops").insert({
+    pin_id: pinId,
+    data_source: "gtfs",
+    feed_id: transitStop.feedId,
+    gtfs_stop_id: transitStop.gtfsStopId,
+  });
+  if (error) throw new Error("交通機関情報の保存に失敗しました");
 }
 
 async function replaceSessions(
@@ -48,6 +112,7 @@ interface CreatePinInput {
   date?: string;
   timeLabel?: string;
   sessions?: SessionInput[];
+  transitStop?: TransitStopInput;
 }
 
 export async function createPin(input: CreatePinInput): Promise<{ pinId: string }> {
@@ -75,6 +140,9 @@ export async function createPin(input: CreatePinInput): Promise<{ pinId: string 
   if (input.sessions && input.sessions.length > 0) {
     await replaceSessions(supabase, data.id as string, input.sessions);
   }
+  if (input.transitStop) {
+    await replaceTransitStop(supabase, data.id as string, input.transitStop);
+  }
 
   revalidatePath(`/admin/maps/${input.mapId}`);
   return { pinId: data.id as string };
@@ -92,6 +160,7 @@ interface UpdatePinInput {
   timeLabel?: string;
   status: PinStatus;
   sessions?: SessionInput[];
+  transitStop?: TransitStopInput;
 }
 
 export async function updatePin(input: UpdatePinInput): Promise<void> {
@@ -112,6 +181,7 @@ export async function updatePin(input: UpdatePinInput): Promise<void> {
   if (error) throw new Error("ピンの更新に失敗しました");
 
   await replaceSessions(supabase, input.pinId, input.sessions ?? []);
+  await replaceTransitStop(supabase, input.pinId, input.transitStop ?? null);
 
   revalidatePath(`/admin/maps/${input.mapId}`);
 }

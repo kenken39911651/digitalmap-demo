@@ -15,6 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="flex items-center gap-3 text-sm text-neutral-500">
           <ThemeToggle className="text-base leading-none hover:opacity-70" />
           <span>{user.email}</span>
+          <Link href="/admin/transit-feeds" className="hover:underline">
+            交通機関フィード
+          </Link>
           <Link href="/admin/account" className="hover:underline">
             アカウント設定
           </Link>

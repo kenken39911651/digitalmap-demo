@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMapForEditing } from "@/lib/data";
+import { getMapForEditing, getOrganizationGtfsFeeds } from "@/lib/data";
 import AdminMapEditor from "@/components/admin/AdminMapEditor";
 
 interface PageProps {
@@ -8,8 +8,15 @@ interface PageProps {
 
 export default async function EditMapPage({ params }: PageProps) {
   const { mapId } = await params;
-  const result = await getMapForEditing(mapId);
+  const [result, gtfsFeeds] = await Promise.all([getMapForEditing(mapId), getOrganizationGtfsFeeds()]);
   if (!result) notFound();
 
-  return <AdminMapEditor map={result.map} categories={result.categories} pins={result.pins} />;
+  return (
+    <AdminMapEditor
+      map={result.map}
+      categories={result.categories}
+      pins={result.pins}
+      gtfsFeeds={gtfsFeeds}
+    />
+  );
 }

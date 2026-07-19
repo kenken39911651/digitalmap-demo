@@ -77,6 +77,8 @@ export interface Pin {
   updated_at: string;
   /** Only populated when fetched via a nested Supabase select. */
   sessions?: PinSession[];
+  /** Only populated when fetched via a nested Supabase select. */
+  transit_stop?: PinTransitStop | null;
 }
 
 export interface PinSession {
@@ -87,6 +89,41 @@ export interface PinSession {
   end_time: string | null;
   description: string | null;
   sort_order: number;
+}
+
+export type TransitDataSource = "gtfs" | "external_link";
+
+export interface PinTransitStop {
+  id: string;
+  pin_id: string;
+  data_source: TransitDataSource;
+  external_url: string | null;
+  external_label: string | null;
+  feed_id: string | null;
+  gtfs_stop_id: string | null;
+  /** 管理画面での表示用。ネスト選択で取得したときだけ入る。 */
+  gtfs_stop?: { stop_name: string } | null;
+}
+
+export type GtfsFeedStatus = "pending" | "stops_ready" | "ready" | "error";
+
+export interface GtfsFeed {
+  id: string;
+  organization_id: string;
+  name: string;
+  source_url: string;
+  status: GtfsFeedStatus;
+  last_imported_at: string | null;
+  last_error: string | null;
+}
+
+export interface GtfsStop {
+  id: string;
+  feed_id: string;
+  stop_id: string;
+  stop_name: string;
+  stop_lat: number | null;
+  stop_lon: number | null;
 }
 
 export interface Organization {

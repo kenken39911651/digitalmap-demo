@@ -2,7 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { EventMap, MapCategory, Pin } from "@/lib/types";
+import type { EventMap, GtfsFeed, MapCategory, Pin } from "@/lib/types";
+import { normalizePinTransitStops } from "@/lib/gtfs/normalize";
 
 export const requireUser = cache(async () => {
   const supabase = await createClient();
@@ -74,7 +75,9 @@ export async function getMapForEditing(mapId: string): Promise<{
     supabase.from("map_categories").select("*").eq("map_id", mapId).order("sort_order"),
     supabase
       .from("pins")
-      .select("*, sessions:pin_sessions(*)")
+      .select(
+        "*, sessions:pin_sessions(*), transit_stop:pin_transit_stops(*, gtfs_stop:gtfs_stops(stop_name))"
+      )
       .eq("map_id", mapId)
       .order("sort_order")
       .order("sort_order", { foreignTable: "pin_sessions" }),
@@ -83,6 +86,17 @@ export async function getMapForEditing(mapId: string): Promise<{
   return {
     map: map as EventMap,
     categories: (categories ?? []) as MapCategory[],
-    pins: (pins ?? []) as Pin[],
+    pins: normalizePinTransitStops((pins ?? []) as Pin[]),
   };
+}
+
+export async function getOrganizationGtfsFeeds(): Promise<GtfsFeed[]> {
+  const orgId = await getOrCreateOrganizationId();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("gtfs_feeds")
+    .select("*")
+    .eq("organization_id", orgId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as GtfsFeed[];
 }

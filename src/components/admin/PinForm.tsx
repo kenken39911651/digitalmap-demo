@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { MapCategory, Pin } from "@/lib/types";
-import { createPin, updatePin, deletePin, type SessionInput } from "@/lib/actions/pins";
+import type { GtfsFeed, MapCategory, Pin } from "@/lib/types";
+import { createPin, updatePin, deletePin, type SessionInput, type TransitStopInput } from "@/lib/actions/pins";
+import { searchGtfsStops } from "@/lib/actions/transit";
 
 interface PinFormProps {
   mapId: string;
   categories: MapCategory[];
+  gtfsFeeds: GtfsFeed[];
   /** New pin: only lat/lng known. Existing pin: full Pin record. */
   target: { mode: "create"; lat: number; lng: number } | { mode: "edit"; pin: Pin };
   onClose: () => void;
@@ -20,8 +22,9 @@ function timeValue(t: string | null): string {
   return t ? t.slice(0, 5) : "";
 }
 
-export default function PinForm({ mapId, categories, target, onClose, onAddCategory }: PinFormProps) {
+export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose, onAddCategory }: PinFormProps) {
   const existing = target.mode === "edit" ? target.pin : null;
+  const existingTransit = existing?.transit_stop ?? null;
   const [title, setTitle] = useState(existing?.title ?? "");
   const [emoji, setEmoji] = useState(existing?.emoji ?? "📍");
   const [categoryId, setCategoryId] = useState<string | null>(
@@ -42,6 +45,22 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
   const status = existing?.status ?? "active";
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [isTransitStop, setIsTransitStop] = useState(!!existingTransit);
+  const [transitSource, setTransitSource] = useState<"external_link" | "gtfs">(
+    existingTransit?.data_source ?? "external_link"
+  );
+  const [externalUrl, setExternalUrl] = useState(existingTransit?.external_url ?? "");
+  const [externalLabel, setExternalLabel] = useState(existingTransit?.external_label ?? "");
+  const [selectedFeedId, setSelectedFeedId] = useState(existingTransit?.feed_id ?? gtfsFeeds[0]?.id ?? "");
+  const [stopQuery, setStopQuery] = useState("");
+  const [stopResults, setStopResults] = useState<{ id: string; stop_name: string }[]>([]);
+  const [selectedStop, setSelectedStop] = useState<{ id: string; stop_name: string } | null>(
+    existingTransit?.data_source === "gtfs" && existingTransit.gtfs_stop_id
+      ? { id: existingTransit.gtfs_stop_id, stop_name: existingTransit.gtfs_stop?.stop_name ?? "登録済みの停留所" }
+      : null
+  );
+  const [searchPending, startSearchTransition] = useTransition();
 
   function updateSession(index: number, patch: Partial<SessionInput>) {
     setSessions((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -65,12 +84,38 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
     });
   }
 
+  function handleSearchStops() {
+    if (!selectedFeedId || !stopQuery.trim()) return;
+    setError(null);
+    startSearchTransition(async () => {
+      try {
+        const results = await searchGtfsStops(selectedFeedId, stopQuery);
+        setStopResults(results.map((r) => ({ id: r.id, stop_name: r.stop_name })));
+      } catch {
+        setError("停留所の検索に失敗しました。");
+      }
+    });
+  }
+
+  function buildTransitStop(): TransitStopInput {
+    if (!isTransitStop) return null;
+    if (transitSource === "external_link") {
+      if (!externalUrl.trim()) return null;
+      return { dataSource: "external_link", url: externalUrl.trim(), label: externalLabel.trim() || undefined };
+    }
+    if (selectedFeedId && selectedStop) {
+      return { dataSource: "gtfs", feedId: selectedFeedId, gtfsStopId: selectedStop.id };
+    }
+    return null;
+  }
+
   function handleSave() {
     if (!title.trim()) {
       setError("名前を入力してください。");
       return;
     }
     setError(null);
+    const transitStop = buildTransitStop();
     startTransition(async () => {
       try {
         if (target.mode === "create") {
@@ -86,6 +131,7 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
             date,
             timeLabel,
             sessions,
+            transitStop,
           });
         } else {
           await updatePin({
@@ -100,6 +146,7 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
             timeLabel,
             status,
             sessions,
+            transitStop,
           });
         }
         onClose();
@@ -299,6 +346,134 @@ export default function PinForm({ mapId, categories, target, onClose, onAddCateg
             >
               + プログラムを追加
             </button>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={isTransitStop}
+                onChange={(e) => setIsTransitStop(e.target.checked)}
+              />
+              このピンは駅・バス停（時刻表を表示する）
+            </label>
+
+            {isTransitStop && (
+              <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-2 dark:border-neutral-800">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransitSource("external_link")}
+                    className={
+                      "rounded-full border px-3 py-1 text-xs font-semibold " +
+                      (transitSource === "external_link"
+                        ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                        : "border-neutral-300 dark:border-neutral-700")
+                    }
+                  >
+                    外部リンク
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransitSource("gtfs")}
+                    className={
+                      "rounded-full border px-3 py-1 text-xs font-semibold " +
+                      (transitSource === "gtfs"
+                        ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                        : "border-neutral-300 dark:border-neutral-700")
+                    }
+                  >
+                    GTFS時刻表
+                  </button>
+                </div>
+
+                {transitSource === "external_link" ? (
+                  <>
+                    <label className="flex flex-col gap-1 text-xs font-medium">
+                      リンクURL
+                      <input
+                        value={externalUrl}
+                        onChange={(e) => setExternalUrl(e.target.value)}
+                        placeholder="https://transit.yahoo.co.jp/..."
+                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs font-medium">
+                      表示ラベル（任意）
+                      <input
+                        value={externalLabel}
+                        onChange={(e) => setExternalLabel(e.target.value)}
+                        placeholder="Yahoo!路線情報で見る"
+                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
+                  </>
+                ) : gtfsFeeds.length === 0 ? (
+                  <p className="text-xs text-neutral-500">
+                    まだGTFSフィードが登録されていません。ヘッダーの「交通機関フィード」から登録してください。
+                  </p>
+                ) : (
+                  <>
+                    <label className="flex flex-col gap-1 text-xs font-medium">
+                      フィード
+                      <select
+                        value={selectedFeedId}
+                        onChange={(e) => {
+                          setSelectedFeedId(e.target.value);
+                          setSelectedStop(null);
+                          setStopResults([]);
+                        }}
+                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
+                      >
+                        {gtfsFeeds.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        value={stopQuery}
+                        onChange={(e) => setStopQuery(e.target.value)}
+                        placeholder="停留所名で検索"
+                        className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchStops}
+                        disabled={searchPending}
+                        className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-40 dark:border-neutral-700"
+                      >
+                        {searchPending ? "検索中…" : "検索"}
+                      </button>
+                    </div>
+                    {stopResults.length > 0 && (
+                      <ul className="flex flex-col gap-1">
+                        {stopResults.map((s) => (
+                          <li key={s.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedStop(s);
+                                setStopResults([]);
+                                setStopQuery("");
+                              }}
+                              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-left text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
+                            >
+                              {s.stop_name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selectedStop && (
+                      <p className="text-xs text-neutral-500">選択中の停留所: {selectedStop.stop_name}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { EventMap, MapCategory, Pin } from "@/lib/types";
+import type { EventMap, GtfsFeed, MapCategory, Pin } from "@/lib/types";
 import MapCanvas, { type MapCanvasHandle } from "@/components/map/MapCanvas";
 import CategoryChips from "@/components/map/CategoryChips";
 import PinList from "@/components/map/PinList";
@@ -21,9 +21,10 @@ interface AdminMapEditorProps {
   map: EventMap;
   categories: MapCategory[];
   pins: Pin[];
+  gtfsFeeds: GtfsFeed[];
 }
 
-export default function AdminMapEditor({ map, categories, pins }: AdminMapEditorProps) {
+export default function AdminMapEditor({ map, categories, pins, gtfsFeeds }: AdminMapEditorProps) {
   const router = useRouter();
   const canvasRef = useRef<MapCanvasHandle>(null);
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(
@@ -151,6 +152,7 @@ export default function AdminMapEditor({ map, categories, pins }: AdminMapEditor
         <PinForm
           mapId={map.id}
           categories={categories}
+          gtfsFeeds={gtfsFeeds}
           target={formTarget}
           onClose={closeForm}
           onAddCategory={() => setShowAddCategory(true)}

@@ -10,6 +10,7 @@ import {
   BasemapToggleControl,
   styleUrlFor,
 } from "./maptilerBasemap";
+import { fetchUpcomingDepartures } from "@/lib/gtfs/clientTimetable";
 
 export interface MapCanvasHandle {
   flyTo(lat: number, lng: number, zoom?: number): void;
@@ -98,6 +99,63 @@ function sessionListHtml(pin: Pin) {
   `;
 }
 
+function transitHtml(pin: Pin) {
+  const stop = pin.transit_stop;
+  if (!stop) return "";
+  if (stop.data_source === "external_link" && stop.external_url) {
+    return `
+      <div class="popup-transit">
+        <a class="popup-transit-link-btn" href="${escapeHtml(stop.external_url)}" target="_blank" rel="noopener noreferrer">
+          🚉 ${escapeHtml(stop.external_label || "Yahoo!路線情報で見る")}
+        </a>
+      </div>
+    `;
+  }
+  if (stop.data_source === "gtfs") {
+    return `<div class="popup-transit"><p class="popup-transit-loading">🚉 時刻表を読み込み中…</p></div>`;
+  }
+  return "";
+}
+
+// GTFS時刻表は開くたびに最新を取りに行くため、popupHtml()の同期文字列では
+// なく、ポップアップの"open"イベントで非同期に.popup-transit要素へ差し込む。
+function loadTransitTimetable(pin: Pin, popup: maplibregl.Popup) {
+  const stop = pin.transit_stop;
+  if (!stop || stop.data_source !== "gtfs" || !stop.feed_id || !stop.gtfs_stop_id) return;
+
+  fetchUpcomingDepartures(stop.feed_id, stop.gtfs_stop_id)
+    .then((rows) => {
+      if (!popup.isOpen()) return;
+      const el = popup.getElement()?.querySelector<HTMLElement>(".popup-transit");
+      if (!el) return;
+      if (rows.length === 0) {
+        el.innerHTML = `<p class="popup-transit-empty">本日の運行はありません</p>`;
+        return;
+      }
+      el.innerHTML = `
+        <ul class="popup-transit-list">
+          ${rows
+            .map(
+              (r) => `
+            <li class="popup-transit-row">
+              <span class="popup-transit-time">${escapeHtml(r.timeText)}</span>
+              <span class="popup-transit-headsign">${escapeHtml(
+                [r.routeName, r.headsign].filter(Boolean).join(" ")
+              )}</span>
+            </li>
+          `
+            )
+            .join("")}
+        </ul>
+      `;
+    })
+    .catch(() => {
+      if (!popup.isOpen()) return;
+      const el = popup.getElement()?.querySelector<HTMLElement>(".popup-transit");
+      if (el) el.innerHTML = `<p class="popup-transit-empty">時刻表を取得できませんでした</p>`;
+    });
+}
+
 function popupHtml(pin: Pin, category: MapCategory | undefined) {
   const accent = category?.color ?? "var(--map-text-muted)";
   const cancelledBadge =
@@ -125,6 +183,7 @@ function popupHtml(pin: Pin, category: MapCategory | undefined) {
       ` : ""}
       ${pin.description ? `<div class="popup-desc">${escapeHtml(pin.description)}</div>` : ""}
       ${sessionListHtml(pin)}
+      ${transitHtml(pin)}
     </div>
   `;
 }
@@ -287,6 +346,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
           popup.on("close", () => {
             if (activePinIdRef.current === pin.id) activePinIdRef.current = null;
           });
+          popup.on("open", () => loadTransitTimetable(pin, popup));
           const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
             .setLngLat([pin.lng, pin.lat])
             .setPopup(popup)

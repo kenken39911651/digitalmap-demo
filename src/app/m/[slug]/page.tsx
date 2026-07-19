@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import PublicMapView from "@/components/map/PublicMapView";
 import ThemeToggle from "@/components/ThemeToggle";
+import { normalizePinTransitStops } from "@/lib/gtfs/normalize";
 import type { EventMap, MapCategory, Pin, PublishedSnapshot } from "@/lib/types";
 
 interface PageProps {
@@ -43,7 +44,7 @@ async function getPublishedMap(slug: string) {
       .order("sort_order"),
     supabase
       .from("pins")
-      .select("*, sessions:pin_sessions(*)")
+      .select("*, sessions:pin_sessions(*), transit_stop:pin_transit_stops(*)")
       .eq("map_id", row.id)
       .neq("status", "hidden")
       .order("sort_order")
@@ -53,7 +54,7 @@ async function getPublishedMap(slug: string) {
   return {
     map: row as EventMap,
     categories: (categories ?? []) as MapCategory[],
-    pins: (pins ?? []) as Pin[],
+    pins: normalizePinTransitStops((pins ?? []) as Pin[]),
   };
 }
 
