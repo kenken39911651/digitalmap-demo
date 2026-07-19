@@ -25,6 +25,8 @@ interface MapCanvasProps {
   centerLabel?: string;
   /** 管理画面では実ピンと重なって紛らわしいため非表示にする(既定は表示)。 */
   showCenterMarker?: boolean;
+  /** 来場者向け公開マップでのみ「現在地」ボタンを表示する(既定は非表示)。 */
+  showGeolocate?: boolean;
   categories: MapCategory[];
   pins: Pin[];
   activeCategoryIds: Set<string>;
@@ -136,6 +138,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     brandColor = "#c0472e",
     centerLabel,
     showCenterMarker = true,
+    showGeolocate = false,
     categories,
     pins,
     activeCategoryIds,
@@ -182,6 +185,23 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       }),
       "top-right"
     );
+
+    if (showGeolocate) {
+      const geolocate = new maplibregl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+      });
+      // GeolocateControlは失敗時に見た目上のフィードバックを出さないため、
+      // 権限拒否・取得失敗を利用者に伝える最低限のアラートを出す。
+      geolocate.on("error", (err) => {
+        if (err.code === 1) {
+          alert("位置情報の利用が許可されていません。ブラウザの設定から位置情報の利用を許可してください。");
+        } else {
+          alert("現在地を取得できませんでした。電波状況の良い場所で再度お試しください。");
+        }
+      });
+      map.addControl(geolocate, "bottom-left");
+    }
 
     map.once("style.load", () => {
       applyBrandTint(map, basemap, brandColor);

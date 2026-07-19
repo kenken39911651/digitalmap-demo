@@ -144,6 +144,7 @@ export default function PublicMapView({ map, categories, pins }: PublicMapViewPr
           brandColor={map.brand_color}
           basemap={map.basemap}
           centerLabel={map.title}
+          showGeolocate
           categories={categories}
           pins={filteredPins}
           activeCategoryIds={activeCategoryIds}
