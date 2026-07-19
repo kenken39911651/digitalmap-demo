@@ -19,6 +19,17 @@
   }
 }
 
+/* data-theme属性は手動切替の明示指定で、システム設定より優先される
+   (属性セレクタが加わる分、常に上のprefers-color-schemeより詳細度が高い)。 */
+:root[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -64,6 +75,33 @@ body {
   }
 }
 
+:root[data-theme="light"] {
+  --map-bg: #f7f5f1;
+  --map-surface: #ffffff;
+  --map-surface-hover: #faf8f4;
+  --map-border: #e7e2d8;
+  --map-border-strong: #d9d2c2;
+  --map-text-primary: #221f19;
+  --map-text-secondary: #625c4c;
+  --map-text-muted: #948d78;
+  --map-shadow-sm: 0 1px 2px rgba(30, 25, 15, 0.06);
+  --map-shadow: 0 4px 16px rgba(30, 25, 15, 0.08), 0 1px 3px rgba(30, 25, 15, 0.06);
+  --map-shadow-lg: 0 12px 32px rgba(30, 25, 15, 0.14), 0 2px 6px rgba(30, 25, 15, 0.08);
+}
+:root[data-theme="dark"] {
+  --map-bg: #171613;
+  --map-surface: #221f1a;
+  --map-surface-hover: #2a2621;
+  --map-border: #3a352b;
+  --map-border-strong: #4a4436;
+  --map-text-primary: #f4f1e9;
+  --map-text-secondary: #c9c2b0;
+  --map-text-muted: #948c78;
+  --map-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --map-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --map-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -106,6 +144,24 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.theme-toggle-btn {
+  flex: none;
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--map-border);
+  background: var(--map-surface);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 150ms ease-out, transform 150ms ease-out;
+}
+.theme-toggle-btn:hover { background: var(--map-surface-hover); transform: translateY(-1px); }
 
 .app-body {
   flex: 1;
@@ -296,7 +352,7 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 16%, transparent);
 }
 
-.filter-block { border: none; padding: 0; margin: 0; }
+.filter-block { border: none; padding: 0; margin: 0; min-width: 0; }
 .filter-block legend {
   font-size: 11px;
   font-weight: 700;
@@ -339,7 +395,9 @@ body {
 .tab-group {
   display: flex;
   gap: 6px;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 2px;
 }

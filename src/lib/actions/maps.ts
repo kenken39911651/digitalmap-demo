@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreateOrganizationId, getMapForEditing } from "@/lib/data";
 import { generateSlug } from "@/lib/slug";
 import { getTemplate } from "@/lib/templates";
-import type { EventType } from "@/lib/types";
+import type { EventType, MapCategory, Pin, PublishedSnapshot } from "@/lib/types";
 
 // 中心地点はウィザードStep3で設定されるまでの仮の値（東京駅）。
 const DEFAULT_CENTER = { lat: 35.681236, lng: 139.767125 };
@@ -130,17 +130,79 @@ export async function updateMapSettings(input: UpdateMapSettingsInput): Promise<
   revalidatePath(`/admin/maps/${input.mapId}`);
 }
 
+// 公開マップ(/m/[slug])に出す内容のスナップショットを、その時点のライブデータ
+// (event_maps/map_categories/pins)から組み立てる。publishMapと
+// applyPublishedChangesの両方から使う共通処理。
+async function buildSnapshot(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  mapId: string,
+  orgId: string
+): Promise<PublishedSnapshot> {
+  const { data: map, error: mapError } = await supabase
+    .from("event_maps")
+    .select(
+      "title, description, center_lat, center_lng, default_zoom, basemap, brand_color, notice_text, hidden_schedule_venues"
+    )
+    .eq("id", mapId)
+    .eq("organization_id", orgId)
+    .single();
+  if (mapError || !map) throw new Error("マップが見つかりません");
+
+  const [{ data: categories }, { data: pins }] = await Promise.all([
+    supabase.from("map_categories").select("*").eq("map_id", mapId).order("sort_order"),
+    supabase
+      .from("pins")
+      .select("*, sessions:pin_sessions(*)")
+      .eq("map_id", mapId)
+      .neq("status", "hidden")
+      .order("sort_order")
+      .order("sort_order", { foreignTable: "pin_sessions" }),
+  ]);
+
+  return {
+    map: map as PublishedSnapshot["map"],
+    categories: (categories ?? []) as MapCategory[],
+    pins: (pins ?? []) as Pin[],
+  };
+}
+
 export async function publishMap(mapId: string): Promise<void> {
   const orgId = await getOrCreateOrganizationId();
   const supabase = await createClient();
+  const snapshot = await buildSnapshot(supabase, mapId, orgId);
   const { error } = await supabase
     .from("event_maps")
-    .update({ status: "published", published_at: new Date().toISOString() })
+    .update({
+      status: "published",
+      published_at: new Date().toISOString(),
+      published_snapshot: snapshot,
+    })
     .eq("id", mapId)
     .eq("organization_id", orgId);
   if (error) throw new Error("公開に失敗しました");
   revalidatePath("/admin");
   revalidatePath(`/admin/maps/${mapId}`);
+  revalidatePath(`/admin/maps/${mapId}/preview`);
+}
+
+// 公開済みマップの編集内容(ピン・カテゴリ・マップ設定)を、来場者向けページに
+// 反映する。編集画面での保存は常にライブテーブルに即時反映されるが、それだけ
+// では来場者向けページ(スナップショット参照)は変わらない。この操作で初めて
+// 公開側に反映される。
+export async function applyPublishedChanges(mapId: string): Promise<void> {
+  const orgId = await getOrCreateOrganizationId();
+  const supabase = await createClient();
+  const snapshot = await buildSnapshot(supabase, mapId, orgId);
+  const { error } = await supabase
+    .from("event_maps")
+    .update({ published_snapshot: snapshot })
+    .eq("id", mapId)
+    .eq("organization_id", orgId)
+    .eq("status", "published");
+  if (error) throw new Error("反映に失敗しました");
+  revalidatePath("/admin");
+  revalidatePath(`/admin/maps/${mapId}`);
+  revalidatePath(`/admin/maps/${mapId}/preview`);
 }
 
 export async function unpublishMap(mapId: string): Promise<void> {

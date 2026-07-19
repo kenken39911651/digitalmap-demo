@@ -21,8 +21,32 @@ export interface EventMap {
   notice_text: string | null;
   hidden_schedule_venues: string[];
   published_at: string | null;
+  published_snapshot: PublishedSnapshot | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * 公開マップ(/m/[slug])が実際に表示する内容のスナップショット。管理画面での
+ * 編集は常にライブテーブル(pins/map_categories/event_maps)に即時保存されるが、
+ * それを来場者向けページへ反映するのは「変更を公開に反映」操作を挟むことで、
+ * 編集途中の状態が公開中のマップに勝手に出てしまわないようにしている。
+ */
+export interface PublishedSnapshot {
+  map: Pick<
+    EventMap,
+    | "title"
+    | "description"
+    | "center_lat"
+    | "center_lng"
+    | "default_zoom"
+    | "basemap"
+    | "brand_color"
+    | "notice_text"
+    | "hidden_schedule_venues"
+  >;
+  categories: MapCategory[];
+  pins: Pin[];
 }
 
 export interface MapCategory {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/data";
 import { signOut } from "./actions";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -12,7 +13,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           🗺️ イベントマップ管理
         </Link>
         <div className="flex items-center gap-3 text-sm text-neutral-500">
+          <ThemeToggle className="text-base leading-none hover:opacity-70" />
           <span>{user.email}</span>
+          <Link href="/admin/account" className="hover:underline">
+            アカウント設定
+          </Link>
           <form action={signOut}>
             <button type="submit" className="hover:underline">
               ログアウト
