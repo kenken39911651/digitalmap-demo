@@ -4,6 +4,15 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { GtfsFeed } from "@/lib/types";
 import { registerGtfsFeed, refreshGtfsFeedStops, deleteGtfsFeed } from "@/lib/actions/transit";
+import { KNOWN_GTFS_FEEDS } from "@/lib/gtfs/knownFeeds";
+
+const KNOWN_FEEDS_BY_REGION = KNOWN_GTFS_FEEDS.reduce<Record<string, typeof KNOWN_GTFS_FEEDS>>(
+  (acc, feed) => {
+    (acc[feed.region] ??= []).push(feed);
+    return acc;
+  },
+  {}
+);
 
 const STATUS_LABEL: Record<GtfsFeed["status"], string> = {
   pending: "取り込み待ち",
@@ -73,6 +82,35 @@ export default function TransitFeedManager({ feeds }: { feeds: GtfsFeed[] }) {
       <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
         <h2 className="text-sm font-bold">新しいフィードを登録</h2>
         <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            既知のフィードから選ぶ（任意）
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const feed = KNOWN_GTFS_FEEDS.find((f) => f.sourceUrl === e.target.value);
+                if (feed) {
+                  setName(feed.name);
+                  setSourceUrl(feed.sourceUrl);
+                }
+              }}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-normal dark:border-neutral-700 dark:bg-neutral-950"
+            >
+              <option value="">選択すると下欄に自動入力されます</option>
+              {Object.entries(KNOWN_FEEDS_BY_REGION).map(([region, feeds]) => (
+                <optgroup key={region} label={region}>
+                  {feeds.map((f) => (
+                    <option key={f.sourceUrl} value={f.sourceUrl}>
+                      {f.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <span className="text-xs font-normal text-neutral-500">
+              一覧にない事業者は、下の欄に直接フィード名とURLを入力してください。
+            </span>
+          </label>
+
           <label className="flex flex-col gap-1 text-sm font-medium">
             フィード名
             <input
