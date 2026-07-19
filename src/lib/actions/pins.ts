@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateOrganizationId } from "@/lib/data";
-import { importStopSchedule } from "@/lib/gtfs/import";
 import type { PinStatus } from "@/lib/types";
 
 export interface SessionInput {
@@ -13,11 +11,22 @@ export interface SessionInput {
   description?: string;
 }
 
+export interface TransitStopGtfsSelection {
+  feedId: string;
+  gtfsStopId: string;
+  /** 空配列は「全路線を表示」を意味する。 */
+  routeUuids: string[];
+}
+
 export type TransitStopInput =
   | { dataSource: "external_link"; url: string; label?: string }
-  | { dataSource: "gtfs"; feedId: string; gtfsStopId: string }
+  | { dataSource: "gtfs"; stops: TransitStopGtfsSelection[] }
   | null;
 
+// GTFS側の実際の取り込み(Stage B)は、PinForm側で停留所を追加した時点で
+// prepareGtfsStopForPin()が既に行っている。ここでは選択結果を
+// pin_transit_stops/pin_transit_gtfs_stops/pin_transit_gtfs_routesに
+// 保存するだけ(delete→insertの全置換、他のフォーム項目と同じパターン)。
 async function replaceTransitStop(
   supabase: Awaited<ReturnType<typeof createClient>>,
   pinId: string,
@@ -40,39 +49,33 @@ async function replaceTransitStop(
     return;
   }
 
-  const orgId = await getOrCreateOrganizationId();
-  const { data: feed } = await supabase
-    .from("gtfs_feeds")
-    .select("id, source_url")
-    .eq("id", transitStop.feedId)
-    .eq("organization_id", orgId)
-    .maybeSingle();
-  if (!feed) throw new Error("フィードが見つかりません");
+  if (transitStop.stops.length === 0) return;
 
-  const { data: stop } = await supabase
-    .from("gtfs_stops")
-    .select("id, stop_id")
-    .eq("id", transitStop.gtfsStopId)
-    .eq("feed_id", transitStop.feedId)
-    .maybeSingle();
-  if (!stop) throw new Error("停留所が見つかりません");
+  const { data: parent, error: parentError } = await supabase
+    .from("pin_transit_stops")
+    .insert({ pin_id: pinId, data_source: "gtfs" })
+    .select("id")
+    .single();
+  if (parentError || !parent) throw new Error("交通機関情報の保存に失敗しました");
 
-  await importStopSchedule(
-    supabase,
-    transitStop.feedId,
-    orgId,
-    feed.source_url as string,
-    stop.id as string,
-    stop.stop_id as string
-  );
+  for (const stop of transitStop.stops) {
+    const { data: stopRow, error: stopError } = await supabase
+      .from("pin_transit_gtfs_stops")
+      .insert({ pin_transit_stop_id: parent.id, feed_id: stop.feedId, gtfs_stop_id: stop.gtfsStopId })
+      .select("id")
+      .single();
+    if (stopError || !stopRow) throw new Error("停留所情報の保存に失敗しました");
 
-  const { error } = await supabase.from("pin_transit_stops").insert({
-    pin_id: pinId,
-    data_source: "gtfs",
-    feed_id: transitStop.feedId,
-    gtfs_stop_id: transitStop.gtfsStopId,
-  });
-  if (error) throw new Error("交通機関情報の保存に失敗しました");
+    if (stop.routeUuids.length > 0) {
+      const { error: routesError } = await supabase.from("pin_transit_gtfs_routes").insert(
+        stop.routeUuids.map((routeUuid) => ({
+          pin_transit_gtfs_stop_id: stopRow.id,
+          route_uuid: routeUuid,
+        }))
+      );
+      if (routesError) throw new Error("路線の絞り込み設定の保存に失敗しました");
+    }
+  }
 }
 
 async function replaceSessions(

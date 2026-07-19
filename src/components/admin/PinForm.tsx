@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { GtfsFeed, MapCategory, Pin } from "@/lib/types";
 import { createPin, updatePin, deletePin, type SessionInput, type TransitStopInput } from "@/lib/actions/pins";
-import { searchGtfsStops } from "@/lib/actions/transit";
+import { searchGtfsStops, prepareGtfsStopForPin } from "@/lib/actions/transit";
+
+interface AddedStop {
+  feedId: string;
+  gtfsStopId: string;
+  stopName: string;
+  routes: { routeUuid: string; label: string }[];
+  selectedRouteUuids: Set<string>;
+  loadingRoutes: boolean;
+}
 
 interface PinFormProps {
   mapId: string;
@@ -52,15 +61,43 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
   );
   const [externalUrl, setExternalUrl] = useState(existingTransit?.external_url ?? "");
   const [externalLabel, setExternalLabel] = useState(existingTransit?.external_label ?? "");
-  const [selectedFeedId, setSelectedFeedId] = useState(existingTransit?.feed_id ?? gtfsFeeds[0]?.id ?? "");
+  const [selectedFeedId, setSelectedFeedId] = useState(gtfsFeeds[0]?.id ?? "");
   const [stopQuery, setStopQuery] = useState("");
   const [stopResults, setStopResults] = useState<{ id: string; stop_name: string }[]>([]);
-  const [selectedStop, setSelectedStop] = useState<{ id: string; stop_name: string } | null>(
-    existingTransit?.data_source === "gtfs" && existingTransit.gtfs_stop_id
-      ? { id: existingTransit.gtfs_stop_id, stop_name: existingTransit.gtfs_stop?.stop_name ?? "登録済みの停留所" }
-      : null
+  const [addedStops, setAddedStops] = useState<AddedStop[]>(() =>
+    (existingTransit?.data_source === "gtfs" ? existingTransit.gtfs_stops ?? [] : []).map((s) => ({
+      feedId: s.feed_id,
+      gtfsStopId: s.gtfs_stop_id,
+      stopName: s.gtfs_stop?.stop_name ?? "登録済みの停留所",
+      routes: [],
+      selectedRouteUuids: new Set((s.routes ?? []).map((r) => r.route_uuid)),
+      loadingRoutes: true,
+    }))
   );
   const [searchPending, startSearchTransition] = useTransition();
+
+  // 編集時、既に紐付いている停留所の路線一覧(名前つき)を取り直す。選択済みの
+  // route_uuidだけはDBから分かるが、名前やチェックを外した他の路線の存在は
+  // 停留所ごとに再取得しないと分からないため。
+  useEffect(() => {
+    addedStops.forEach((stop, index) => {
+      if (!stop.loadingRoutes) return;
+      prepareGtfsStopForPin(stop.feedId, stop.gtfsStopId)
+        .then(({ routes }) => {
+          setAddedStops((prev) =>
+            prev.map((s, i) =>
+              i === index
+                ? { ...s, routes: routes.map((r) => ({ routeUuid: r.routeUuid, label: r.label })), loadingRoutes: false }
+                : s
+            )
+          );
+        })
+        .catch(() => {
+          setAddedStops((prev) => prev.map((s, i) => (i === index ? { ...s, loadingRoutes: false } : s)));
+        });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function updateSession(index: number, patch: Partial<SessionInput>) {
     setSessions((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -97,16 +134,68 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
     });
   }
 
+  function addStop(stop: { id: string; stop_name: string }) {
+    if (!selectedFeedId) return;
+    if (addedStops.some((s) => s.feedId === selectedFeedId && s.gtfsStopId === stop.id)) {
+      setStopResults([]);
+      setStopQuery("");
+      return;
+    }
+    setError(null);
+    startSearchTransition(async () => {
+      try {
+        const { stopName, routes } = await prepareGtfsStopForPin(selectedFeedId, stop.id);
+        setAddedStops((prev) => [
+          ...prev,
+          {
+            feedId: selectedFeedId,
+            gtfsStopId: stop.id,
+            stopName,
+            routes: routes.map((r) => ({ routeUuid: r.routeUuid, label: r.label })),
+            selectedRouteUuids: new Set(routes.map((r) => r.routeUuid)),
+            loadingRoutes: false,
+          },
+        ]);
+        setStopResults([]);
+        setStopQuery("");
+      } catch {
+        setError("停留所の取り込みに失敗しました。");
+      }
+    });
+  }
+
+  function removeStop(index: number) {
+    setAddedStops((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleStopRoute(index: number, routeUuid: string) {
+    setAddedStops((prev) =>
+      prev.map((s, i) => {
+        if (i !== index) return s;
+        const next = new Set(s.selectedRouteUuids);
+        if (next.has(routeUuid)) next.delete(routeUuid);
+        else next.add(routeUuid);
+        return { ...s, selectedRouteUuids: next };
+      })
+    );
+  }
+
   function buildTransitStop(): TransitStopInput {
     if (!isTransitStop) return null;
     if (transitSource === "external_link") {
       if (!externalUrl.trim()) return null;
       return { dataSource: "external_link", url: externalUrl.trim(), label: externalLabel.trim() || undefined };
     }
-    if (selectedFeedId && selectedStop) {
-      return { dataSource: "gtfs", feedId: selectedFeedId, gtfsStopId: selectedStop.id };
-    }
-    return null;
+    if (addedStops.length === 0) return null;
+    return {
+      dataSource: "gtfs",
+      stops: addedStops.map((s) => ({
+        feedId: s.feedId,
+        gtfsStopId: s.gtfsStopId,
+        // 全路線が選択されている(=絞り込みなし)場合は空配列を送る
+        routeUuids: s.selectedRouteUuids.size >= s.routes.length ? [] : [...s.selectedRouteUuids],
+      })),
+    };
   }
 
   function handleSave() {
@@ -414,13 +503,53 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
                   </p>
                 ) : (
                   <>
+                    {addedStops.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        {addedStops.map((stop, i) => (
+                          <div
+                            key={`${stop.feedId}-${stop.gtfsStopId}`}
+                            className="flex flex-col gap-1.5 rounded-lg border border-neutral-200 p-2 dark:border-neutral-800"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold">{stop.stopName}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeStop(i)}
+                                className="shrink-0 text-xs text-red-600"
+                              >
+                                削除
+                              </button>
+                            </div>
+                            {stop.loadingRoutes ? (
+                              <p className="text-xs text-neutral-400">路線を確認中…</p>
+                            ) : stop.routes.length === 0 ? (
+                              <p className="text-xs text-neutral-400">この停留所を通る路線が見つかりませんでした。</p>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-neutral-500">表示する路線</span>
+                                {stop.routes.map((r) => (
+                                  <label key={r.routeUuid} className="flex items-center gap-2 text-xs">
+                                    <input
+                                      type="checkbox"
+                                      checked={stop.selectedRouteUuids.has(r.routeUuid)}
+                                      onChange={() => toggleStopRoute(i, r.routeUuid)}
+                                    />
+                                    {r.label}
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <label className="flex flex-col gap-1 text-xs font-medium">
                       フィード
                       <select
                         value={selectedFeedId}
                         onChange={(e) => {
                           setSelectedFeedId(e.target.value);
-                          setSelectedStop(null);
                           setStopResults([]);
                         }}
                         className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
@@ -436,7 +565,7 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
                       <input
                         value={stopQuery}
                         onChange={(e) => setStopQuery(e.target.value)}
-                        placeholder="停留所名で検索"
+                        placeholder="停留所名で検索（上り・下りなど複数追加できます）"
                         className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs font-normal dark:border-neutral-700 dark:bg-neutral-950"
                       />
                       <button
@@ -445,7 +574,7 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
                         disabled={searchPending}
                         className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-40 dark:border-neutral-700"
                       >
-                        {searchPending ? "検索中…" : "検索"}
+                        {searchPending ? "処理中…" : "検索"}
                       </button>
                     </div>
                     {stopResults.length > 0 && (
@@ -454,21 +583,14 @@ export default function PinForm({ mapId, categories, gtfsFeeds, target, onClose,
                           <li key={s.id}>
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedStop(s);
-                                setStopResults([]);
-                                setStopQuery("");
-                              }}
+                              onClick={() => addStop(s)}
                               className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-left text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
                             >
-                              {s.stop_name}
+                              + {s.stop_name}
                             </button>
                           </li>
                         ))}
                       </ul>
-                    )}
-                    {selectedStop && (
-                      <p className="text-xs text-neutral-500">選択中の停留所: {selectedStop.stop_name}</p>
                     )}
                   </>
                 )}

@@ -99,10 +99,19 @@ export interface PinTransitStop {
   data_source: TransitDataSource;
   external_url: string | null;
   external_label: string | null;
-  feed_id: string | null;
-  gtfs_stop_id: string | null;
+  /** 紐付けたGTFS停留所(上り/下りなど複数可)。ネスト選択時のみ入る。 */
+  gtfs_stops?: PinTransitGtfsStop[];
+}
+
+export interface PinTransitGtfsStop {
+  id: string;
+  pin_transit_stop_id: string;
+  feed_id: string;
+  gtfs_stop_id: string;
   /** 管理画面での表示用。ネスト選択で取得したときだけ入る。 */
   gtfs_stop?: { stop_name: string } | null;
+  /** この停留所で表示する路線を絞り込む。空配列なら「全路線を表示」。 */
+  routes?: { route_uuid: string }[];
 }
 
 export type GtfsFeedStatus = "pending" | "stops_ready" | "ready" | "error";

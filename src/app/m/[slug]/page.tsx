@@ -44,7 +44,9 @@ async function getPublishedMap(slug: string) {
       .order("sort_order"),
     supabase
       .from("pins")
-      .select("*, sessions:pin_sessions(*), transit_stop:pin_transit_stops(*)")
+      .select(
+        "*, sessions:pin_sessions(*), transit_stop:pin_transit_stops(*, gtfs_stops:pin_transit_gtfs_stops(*, routes:pin_transit_gtfs_routes(route_uuid)))"
+      )
       .eq("map_id", row.id)
       .neq("status", "hidden")
       .order("sort_order")

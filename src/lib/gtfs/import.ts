@@ -203,3 +203,42 @@ export async function importStopSchedule(
     );
   }
 }
+
+export interface StopRouteOption {
+  routeUuid: string;
+  label: string;
+}
+
+// その停留所を通る路線の一覧を返す(importStopScheduleで取り込み済みの
+// trip/route情報から求める)。PinForm側で「表示する路線」を選ばせるのに使う。
+export async function getRoutesServingStop(
+  supabase: DbClient,
+  gtfsStopUuid: string
+): Promise<StopRouteOption[]> {
+  const { data, error } = await supabase
+    .from("gtfs_stop_times")
+    .select("trip:gtfs_trips(route:gtfs_routes(id, route_short_name, route_long_name))")
+    .eq("stop_uuid", gtfsStopUuid);
+  if (error) throw new Error("路線情報の取得に失敗しました");
+
+  type Row = {
+    trip:
+      | { route: { id: string; route_short_name: string | null; route_long_name: string | null } | { id: string; route_short_name: string | null; route_long_name: string | null }[] | null }
+      | { route: { id: string; route_short_name: string | null; route_long_name: string | null } | { id: string; route_short_name: string | null; route_long_name: string | null }[] | null }[]
+      | null;
+  };
+
+  const seen = new Map<string, StopRouteOption>();
+  for (const row of (data ?? []) as unknown as Row[]) {
+    const trip = Array.isArray(row.trip) ? row.trip[0] : row.trip;
+    const route = trip?.route ? (Array.isArray(trip.route) ? trip.route[0] : trip.route) : null;
+    if (!route) continue;
+    if (!seen.has(route.id)) {
+      seen.set(route.id, {
+        routeUuid: route.id,
+        label: route.route_short_name || route.route_long_name || "(路線名不明)",
+      });
+    }
+  }
+  return [...seen.values()];
+}

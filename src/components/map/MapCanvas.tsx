@@ -121,9 +121,15 @@ function transitHtml(pin: Pin) {
 // なく、ポップアップの"open"イベントで非同期に.popup-transit要素へ差し込む。
 function loadTransitTimetable(pin: Pin, popup: maplibregl.Popup) {
   const stop = pin.transit_stop;
-  if (!stop || stop.data_source !== "gtfs" || !stop.feed_id || !stop.gtfs_stop_id) return;
+  if (!stop || stop.data_source !== "gtfs" || !stop.gtfs_stops || stop.gtfs_stops.length === 0) return;
 
-  fetchUpcomingDepartures(stop.feed_id, stop.gtfs_stop_id)
+  const stopQueries = stop.gtfs_stops.map((s) => ({
+    feedId: s.feed_id,
+    gtfsStopUuid: s.gtfs_stop_id,
+    routeUuids: (s.routes ?? []).map((r) => r.route_uuid),
+  }));
+
+  fetchUpcomingDepartures(stopQueries)
     .then((rows) => {
       if (!popup.isOpen()) return;
       const el = popup.getElement()?.querySelector<HTMLElement>(".popup-transit");

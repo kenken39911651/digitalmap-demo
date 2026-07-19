@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateOrganizationId } from "@/lib/data";
-import { importFeedStops } from "@/lib/gtfs/import";
+import { importFeedStops, importStopSchedule, getRoutesServingStop, type StopRouteOption } from "@/lib/gtfs/import";
 import type { GtfsStop } from "@/lib/types";
 
 interface RegisterGtfsFeedInput {
@@ -96,4 +96,43 @@ export async function searchGtfsStops(feedId: string, query: string): Promise<Gt
     .limit(20);
   if (error) throw new Error("停留所の検索に失敗しました");
   return (data ?? []) as GtfsStop[];
+}
+
+// ピンに停留所を追加する時点で、その停留所の時刻表(Stage B)を取り込み、
+// そこを通る路線一覧を返す(PinFormの路線チェックリスト表示用)。
+// この時点ではまだpin_transit_gtfs_stopsへの保存はしない(フォーム保存時に行う)。
+export async function prepareGtfsStopForPin(
+  feedId: string,
+  gtfsStopId: string
+): Promise<{ stopName: string; routes: StopRouteOption[] }> {
+  const orgId = await getOrCreateOrganizationId();
+  const supabase = await createClient();
+
+  const { data: feed } = await supabase
+    .from("gtfs_feeds")
+    .select("id, source_url")
+    .eq("id", feedId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+  if (!feed) throw new Error("フィードが見つかりません");
+
+  const { data: stop } = await supabase
+    .from("gtfs_stops")
+    .select("id, stop_id, stop_name")
+    .eq("id", gtfsStopId)
+    .eq("feed_id", feedId)
+    .maybeSingle();
+  if (!stop) throw new Error("停留所が見つかりません");
+
+  await importStopSchedule(
+    supabase,
+    feedId,
+    orgId,
+    feed.source_url as string,
+    stop.id as string,
+    stop.stop_id as string
+  );
+
+  const routes = await getRoutesServingStop(supabase, stop.id as string);
+  return { stopName: stop.stop_name as string, routes };
 }
