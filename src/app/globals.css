@@ -249,10 +249,17 @@ body {
   background: var(--map-surface);
   border-right: 1px solid var(--map-border);
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   z-index: 15;
 }
 
-.sidebar-drag-handle { display: none; }
+.sidebar-drag-handle-zone { display: none; }
+.sidebar-drag-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--map-border-strong);
+}
 
 .sidebar-inner {
   padding: 18px;
@@ -686,13 +693,12 @@ body {
   }
   .sidebar.is-open { transform: translateY(0); }
 
-  .sidebar-drag-handle {
-    display: block;
-    width: 36px;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--map-border-strong);
-    margin: 10px auto 0;
+  .sidebar-drag-handle-zone {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 0 16px;
+    touch-action: none;
   }
 
   .sidebar-scrim {
