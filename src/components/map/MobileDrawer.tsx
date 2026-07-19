@@ -21,7 +21,7 @@ export default function MobileDrawer({
     <>
       <button
         type="button"
-        className="menu-toggle"
+        className={"menu-toggle" + (open ? " is-open" : "")}
         aria-expanded={open}
         aria-controls="sidebar"
         onClick={() => onOpenChange(!open)}

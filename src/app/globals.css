@@ -665,6 +665,10 @@ body {
     z-index: 16;
     box-shadow: var(--map-shadow);
   }
+  /* ドロワーが開いている間は、開いたシートの上にボタンが重なって表示され
+     内容と被って見えるため非表示にする(閉じる操作はシート内のスクリム/
+     ドラッグハンドルで行う)。 */
+  .menu-toggle.is-open { display: none; }
 
   .sidebar {
     position: fixed;
