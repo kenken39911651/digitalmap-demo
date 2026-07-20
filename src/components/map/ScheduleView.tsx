@@ -40,9 +40,10 @@ interface FallbackRow {
   cancelled: boolean;
 }
 
-const ROW_HEIGHT = 80; // 1時間あたりの高さ(px)。時間軸に沿った自然な間隔で
+const ROW_HEIGHT = 96; // 1時間あたりの高さ(px)。時間軸に沿った自然な間隔で
 // 重ならないよう、短い項目でも余裕を持たせるために大きめにしている
-const MIN_BLOCK_HEIGHT = 36; // 短時間の項目でも文字が読める最低の高さ(px)
+const MIN_BLOCK_HEIGHT = 46; // 短時間の項目でも文字が読める最低の高さ(px)
+const BLOCK_GAP = 6; // 縦に積む項目同士の隙間(px)。隣接ブロックが直接くっつかないようにする
 const COLUMN_WIDTH = 220; // 会場列の幅(px)。項目は横に並べず、常にこの1列に縦積みする
 const DEFAULT_DURATION = 60; // 終了時刻が分からない場合の仮の長さ(分)
 
@@ -165,7 +166,7 @@ export default function ScheduleView({ pins, categories, hiddenVenues }: Schedul
         const idealTop = ((e.startMinutes - gridStart) / 60) * ROW_HEIGHT;
         const height = Math.max(((e.endMinutes - e.startMinutes) / 60) * ROW_HEIGHT, MIN_BLOCK_HEIGHT);
         const top = Math.max(idealTop, prevBottom);
-        prevBottom = top + height;
+        prevBottom = top + height + BLOCK_GAP;
         maxBottom = Math.max(maxBottom, prevBottom);
         return {
           key: e.key,

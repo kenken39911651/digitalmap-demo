@@ -268,7 +268,7 @@ body {
   box-sizing: border-box;
   border-left: 3px solid;
   border-radius: 6px;
-  padding: 3px 6px;
+  padding: 6px 8px;
   margin: 0 6px;
   overflow: hidden;
   cursor: default;
