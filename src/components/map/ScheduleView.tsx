@@ -142,18 +142,24 @@ export default function ScheduleView({ pins, categories, hiddenVenues }: Schedul
     // 同じ会場内で時間帯が重なる項目は横に並べる(レーン割り当て)。会場列の幅は
     // 最大レーン数から決め、狭い場所に無理に収めて潰れないようにする(収まら
     // ない分は横スクロールで見る)。
+    // 実データ上は重なっていなくても、MIN_BLOCK_HEIGHTの下限で見た目の高さが
+    // 引き伸ばされるせいで、間隔の狭い項目同士が視覚的に重なることがある
+    // (例: 5分間の項目が10分おきに並ぶ場合)。そのため「見た目上占有する時間」
+    // をMIN_BLOCK_HEIGHT分だけ底上げしてからレーンの空き判定を行う。
+    const minBlockMinutes = (MIN_BLOCK_HEIGHT / ROW_HEIGHT) * 60;
     const entriesByVenue = new Map<string, GridEntry[]>();
     const columnWidthByVenue = new Map<string, number>();
     for (const venue of venueOrder) {
       const raw = [...rawByVenue.get(venue)!].sort((a, b) => a.startMinutes - b.startMinutes);
       const laneEnds: number[] = [];
       const withLane: GridEntry[] = raw.map((e) => {
+        const visualEnd = Math.max(e.endMinutes, e.startMinutes + minBlockMinutes);
         let lane = laneEnds.findIndex((end) => end <= e.startMinutes);
         if (lane === -1) {
           lane = laneEnds.length;
-          laneEnds.push(e.endMinutes);
+          laneEnds.push(visualEnd);
         } else {
-          laneEnds[lane] = e.endMinutes;
+          laneEnds[lane] = visualEnd;
         }
         return { ...e, lane, laneCount: 0 };
       });
